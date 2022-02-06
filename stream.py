@@ -11,6 +11,7 @@ except qbittorrentapi.LoginFailed as e:
 ENGINES = [ "IlCorsaroNero", "1337x", "RARBG" ]
 DL_PATH = qbt_client.app_default_save_path()
 PLAYER = 'mpv --really-quiet --loop=no'
+# 'vlc -q --play-and-exit'
 ROWS = 15 #20
 
 W  = '\033[0m'
@@ -37,13 +38,15 @@ def run_stream(magnet):
     print("Running" , end ="", flush = True)
     for i in range(10):
         print("." , end ="", flush = True)
-        sleep(1)
+        sleep(2)
     progress = 0.0
-    while progress <= 0.02:
-        if timer > 70:
-            print("Torrent Dead! Try another!")
-            kill_torrent(hashed)
-            return False
+    while progress <= 0.01:
+        if timer > 60:
+            should_wait = input("Torrent Dead/Very Slow! Try another [0] or wait [W]? ")
+            if should_wait == "0":
+                kill_torrent(hashed)
+                return False
+            timer = 0 # reset timer
         progress = qbt_client.torrents_info(torrent_hashes=f"{hashed}")[0]['progress']
         sleep(1)
         timer+=1
@@ -57,14 +60,14 @@ def run_stream(magnet):
         sleep(1)
         t_files = qbt_client.torrents_files(torrent_hash=f"{hashed}")
         timer+=1
-    timer = 0
     for f in t_files:
         f_name = DL_PATH+f['name']
         if re.search('\.(xml|exe|txt|nfo|srt|jpg|jpeg|gif|png)$', f_name) != None or not os.path.isfile(f_name):
             continue
         f_progress = 0.0
+        timer = 0
         while f_progress <= 0.025:
-            if timer > 60:
+            if timer > 70:
                 print("Torrent Dead/Too Slow! Try another!")
                 kill_torrent(hashed)
                 return False
@@ -118,7 +121,7 @@ def stream_torrent(engine_id, query):
             chosen = int(input(f"{Y}Select: {W}")) - 1
             magnet = get_magnet(links[chosen])
             print("Downloading...")
-            result = qbt_client.torrents_add(urls=f"{magnet}", download_path=DL_PATH, is_sequential_download=True)
+            result = qbt_client.torrents_add(urls=f"{magnet}", download_path=DL_PATH, is_sequential_download=True, is_first_last_piece_priority=True)
             if result.startswith("Fails"):
                 print("Download Failed! Select a different torrent!")
         sleep(1)
