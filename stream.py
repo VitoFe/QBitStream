@@ -10,7 +10,7 @@ except qbittorrentapi.LoginFailed as e:
 
 ENGINES = [ "IlCorsaroNero", "1337x", "RARBG" ]
 DL_PATH = qbt_client.app_default_save_path()
-PLAYER = 'mpv'
+PLAYER = 'mpv --really-quiet --loop=no'
 ROWS = 15 #20
 
 W  = '\033[0m'
