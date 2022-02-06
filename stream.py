@@ -87,7 +87,11 @@ def stream_torrent(engine_id, query):
         for i,link in enumerate(links):
             if i >= ROWS:
                 break
-            print(f"[{O}{i+1}{W}] ({G}{seeds[i]}{W}) {link.split('/')[-1].replace('_', ' ')}")
+            if len(seeds) < i+1:
+                seed = 0
+            else:
+                seed = seeds[i]
+            print(f"[{O}{i+1}{W}] ({G}{seed}{W}) {link.split('/')[-1].replace('_', ' ')}")
     elif engine_id == 1: # 1337x
         r = requests.get(f'https://1337x.wtf/search/{query}/1/')
         links = list(dict.fromkeys(re.findall('torrent\/[0-9]{6,}\/[a-zA-Z0-9?%-]*/', r.text)))
