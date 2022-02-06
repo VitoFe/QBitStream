@@ -28,6 +28,54 @@ def get_magnet(link):
     r2 = requests.get(link)
     return re.search('"(magnet:\?xt=urn:btih:[0-9a-fA-F]{40,}\S[^">]*)"', r2.text).group(1)
 
+def kill_torrent(t_hash):
+    qbt_client.torrents_delete(delete_files=True, torrent_hashes=f"{t_hash}")
+
+def run_stream(magnet):
+    hashed = get_hash(magnet)
+    timer = 0
+    print("Running" , end ="", flush = True)
+    for i in range(10):
+        print("." , end ="", flush = True)
+        sleep(1)
+    progress = 0.0
+    while progress <= 0.02:
+        if timer > 70:
+            print("Torrent Dead! Try another!")
+            kill_torrent(hashed)
+            return False
+        progress = qbt_client.torrents_info(torrent_hashes=f"{hashed}")[0]['progress']
+        sleep(1)
+        timer+=1
+    timer = 0
+    t_files = list()
+    while len(t_files) <= 0:
+        if timer > 60:
+            print("Torrent Dead! Try another!")
+            kill_torrent(hashed)
+            return False
+        sleep(1)
+        t_files = qbt_client.torrents_files(torrent_hash=f"{hashed}")
+        timer+=1
+    timer = 0
+    for f in t_files:
+        f_name = DL_PATH+f['name']
+        if re.search('\.(xml|exe|txt|nfo|srt|jpg|jpeg|gif|png)$', f_name) != None or not os.path.isfile(f_name):
+            continue
+        f_progress = 0.0
+        while f_progress <= 0.025:
+            if timer > 60:
+                print("Torrent Dead/Too Slow! Try another!")
+                kill_torrent(hashed)
+                return False
+            f_progress = qbt_client.torrents_files(torrent_hash=f"{hashed}")[int(f['index'])]['progress']
+            sleep(1)
+            timer+=1
+        os.system(f'{PLAYER} "{f_name}"')
+    kill_torrent(hashed)
+    print("Terminated.")
+    return True
+
 def stream_torrent(engine_id, query):
     if engine_id == 0: # IlCorsaroNero
         r = requests.get(f'https://ilcorsaronero.link/argh.php?search={query}')
@@ -64,39 +112,19 @@ def stream_torrent(engine_id, query):
         print("No result found for that Query! [Input 0 to change Engine]")
         start_search(engine_id)
         return
-    result = "Fails"
-    while result.startswith("Fails"):
-        chosen = int(input(f"{Y}Select: {W}")) - 1
-        magnet = get_magnet(links[chosen])
-        print("Downloading...")
-        result = qbt_client.torrents_add(urls=f"{magnet}", download_path=DL_PATH, is_sequential_download=True)
-        if result.startswith("Fails"):
-            print("Download Failed! Select a different torrent!")
-    sleep(1)
-    print("Running" , end ="", flush = True)
-    for i in range(10):
-        print("." , end ="", flush = True)
+    def select_torrent():
+        result = "Fails"
+        while result.startswith("Fails"):
+            chosen = int(input(f"{Y}Select: {W}")) - 1
+            magnet = get_magnet(links[chosen])
+            print("Downloading...")
+            result = qbt_client.torrents_add(urls=f"{magnet}", download_path=DL_PATH, is_sequential_download=True)
+            if result.startswith("Fails"):
+                print("Download Failed! Select a different torrent!")
         sleep(1)
-    hashed = get_hash(magnet)
-    progress = 0.0
-    while progress <= 0.02:
-        progress = qbt_client.torrents_info(torrent_hashes=f"{hashed}")[0]['progress']
-        sleep(1)
-    t_files = list()
-    while len(t_files) <= 0:
-        sleep(1)
-        t_files = qbt_client.torrents_files(torrent_hash=f"{hashed}")
-    for f in t_files:
-        f_name = DL_PATH+f['name']
-        if re.search('\.(xml|exe|txt|nfo|srt|jpg|jpeg|gif|png)$', f_name) == None:
-            if os.path.isfile(f_name):
-                f_progress = 0.0
-                while f_progress <= 0.02:
-                    f_progress = qbt_client.torrents_files(torrent_hash=f"{hashed}")[int(f['index'])]['progress']
-                    sleep(1)
-                os.system(f'{PLAYER} "{f_name}"')
-    qbt_client.torrents_delete(delete_files=True, torrent_hashes=f"{hashed}")
-    print("Terminated.")
+        if run_stream(magnet) == False:
+            select_torrent()
+    select_torrent()
 
 def get_engine():
     for i, e in enumerate(ENGINES):
